@@ -1,5 +1,9 @@
 package org.example.audiodetect.analysis;
 
+import org.apache.commons.math3.complex.Complex;
+import org.apache.commons.math3.transform.DftNormalization;
+import org.apache.commons.math3.transform.FastFourierTransformer;
+import org.apache.commons.math3.transform.TransformType;
 import org.example.audiodetect.audio.AudioData;
 
 public class spectrum {
@@ -21,15 +25,22 @@ public class spectrum {
             throw  new IllegalArgumentException("samples length less than FFTsize");
         }
         int framecount = ((samples.length-FFTsize)/(HOPsize))+1;
+        FastFourierTransformer fft = new FastFourierTransformer(DftNormalization.STANDARD);
+        double[][]magnitudes = new double[framecount][(FFTsize/(2))+1];
+
         for(int i=0;i<framecount;i++){
             int start = i*HOPsize;
             double[] buffer = new double[FFTsize];
             for(int j =0; j<FFTsize;j++){
                 buffer[j] = samples[start+j]*hannwindowsize[j];
             }
+            Complex[] spectrum = fft.transform(buffer, TransformType.FORWARD);
+            for(int bin =0;bin<= FFTsize/2;bin++){
+                magnitudes[i][bin] = spectrum[bin].abs();
+            }
         }
-        System.out.println("Framecount: " + framecount);
-        return null;
+        SpectrumData result = new SpectrumData(magnitudes, audioData.getSampleRate(), FFTsize,HOPsize);
+        return result;
     }
 
 }
