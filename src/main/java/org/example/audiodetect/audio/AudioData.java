@@ -1,6 +1,6 @@
 package org.example.audiodetect.audio;
 
- class AudioData {
+ public class AudioData {
 
     double[] samples;
     float samplerate;

@@ -24,10 +24,6 @@ public AudioData load (File file)throws UnsupportedAudioFileException, IOExcepti
        int sampleSizeInBits = format.getSampleSizeInBits();
        boolean isBigEndian =  format.isBigEndian();
 
-       if (sampleSizeInBits != 16){
-           throw new UnsupportedAudioFileException("Only 16-bit wav supported.");
-       }
-
        byte[] bytes = stream.readAllBytes();
 
        System.out.println("Sample Rate: " + sampleRate);
@@ -35,23 +31,34 @@ public AudioData load (File file)throws UnsupportedAudioFileException, IOExcepti
        System.out.println("Sample Size In Bits: " + sampleSizeInBits);
        System.out.println("IsBigEndian: " + isBigEndian);
 
+        if (sampleSizeInBits != 16 && sampleSizeInBits != 24){
+            throw new UnsupportedAudioFileException("Only 16-bit/24-bit wav supported.");
+        }
+
        if (channels != 1 && channels != 2){
            throw new UnsupportedAudioFileException("Wrong channels specified.");
        }
-
-       int bytesperframe = 2*channels;
+       int bytespersample = sampleSizeInBits/8;
+       int bytesperframe = bytespersample*channels;
        int framecount = bytes.length /  bytesperframe;
        double[] samples = new double[framecount];
+
 
         for (int frame = 0; frame< framecount; frame++){
             int framestart = frame*bytesperframe;
             if (bytesperframe == 2){
                 samples[frame] = decodeSample(bytes, framestart, isBigEndian)/32768.0;
-            } else {
-
+            } else if (bytesperframe == 4) {
                 int leftsample =  decodeSample(bytes, framestart, isBigEndian);
                 int rightsample =  decodeSample(bytes, framestart+2, isBigEndian);
                 samples[frame] = ((leftsample+rightsample)/2.0)/32768.0;
+            }else if (bytesperframe == 3){
+                samples[frame] = decodeSample24(bytes, framestart, isBigEndian)/8388608.0;
+            }else if (bytesperframe == 6){
+                int leftsample =  decodeSample24(bytes, framestart, isBigEndian);
+                int rightsample =  decodeSample24(bytes, framestart+3, isBigEndian);
+                samples[frame] = ((leftsample+rightsample)/2.0)/8388608.0;
+
             }
         }
         return new AudioData(samples,sampleRate);
@@ -78,6 +85,36 @@ public AudioData load (File file)throws UnsupportedAudioFileException, IOExcepti
     int lowandhigh = lowUnsignedByte | highshift;
 
     return lowandhigh;
+    }
+
+    private static int decodeSample24(byte[] data, int position, boolean bigEndian) {
+
+        byte first = data[position];
+        byte second = data[position+1];
+        byte third = data[position+2];
+
+        byte low;
+        byte middle;
+        byte high;
+
+        if (bigEndian) {
+            high = first;
+            middle = second;
+            low = third;
+        }else {
+            low = first;
+            middle = second;
+            high = third;
+        }
+
+        int lowUnsignedByte = low & 0xFF;
+        int middleunsignedByte = middle & 0xFF;
+        int middleshifted = middleunsignedByte << 8;
+        int highshift = high << 16;
+
+        int lowandhighandmiddle = lowUnsignedByte | highshift | middleshifted;
+
+        return lowandhighandmiddle;
     }
 
 }
